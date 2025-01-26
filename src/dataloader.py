@@ -74,8 +74,8 @@ def get_st_embeddings(
     THIS MAY NOT BE A GOOD (PERMANENT) SOLUTION.
     """
     #todo: determine if this is correct
-    sum_sentence_embeddings = torch.sum(sentence_embeddings, dim=0)
-    return sum_sentence_embeddings
+    #sum_sentence_embeddings = torch.sum(sentence_embeddings, dim=0)
+    return sentence_embeddings
 
 
 # Creates datasets

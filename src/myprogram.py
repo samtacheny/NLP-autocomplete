@@ -69,12 +69,10 @@ class MyModel(nn.Module):
         #print(context.shape)
         #print(curr_word.shape)
 
+        context = context.view(1, 768)
+
         _input = torch.cat((context, curr_word), dim=1)  # concatenate sentence and word embeddings
-        #print(_input.shape)
-        fc1ret = self.fc1(_input)
-        actret = self.act1(fc1ret)
-        logit = self.fc2(actret)
-        #logit = self.fc2(self.act1(self.fc1(_input)))  # calculate logit
+        logit = self.fc2(self.act1(self.fc1(_input)))  # calculate logit
         return logit
 
     @classmethod
@@ -88,8 +86,9 @@ class MyModel(nn.Module):
         total_embeddings = []
         for entry in sentences:
             splits = entry.split()
+            merged = ' '.join(splits[:-1])
 
-            context_embedded = dataloader.get_st_embeddings(splits, st_model)  # Get context embeddings
+            context_embedded = dataloader.get_st_embeddings([merged], st_model)  # Get context embeddings
 
             word = splits[-1]
             word_embedded = dataloader.get_word_embeddings(word)
@@ -126,7 +125,7 @@ class MyModel(nn.Module):
         n_epochs: int = 100
 
         print("Beginning Training with Parameters:\n---Learning Rate: {l}"
-              "\n---Batch Size: {b}\n---Eval Batch Size: {e}\n---Epochs: {E}"
+              "\n---Batch Size: {b}\n---Eval Batch Size: {e}\n---Epochs: {E}\n"
               .format(l=lr, b=batch_size, e=eval_batch_size, E=n_epochs))
 
         train_loader = data
