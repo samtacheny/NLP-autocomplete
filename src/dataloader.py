@@ -16,10 +16,11 @@ from torch.optim import Adam
 
 # Must be contiguous from 0 to num classes (e.g. num characters we care about)
 char2idx = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i': 8,
-                'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16,
-                'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24,
-                'z': 25, ' ': 26, ',': 27, '!': 28, '”': 29, '#': 30, '$': 31,'%': 31, '&': 32,
-                  '‘': 33, '(': 34, ')': 35, '*': 36, '+': 37, ',': 38, '-': 39, '.': 40, '/': 41, '<unk>': 42}
+            'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16,
+            'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24,
+            'z': 25, ' ': 26, '!': 27, '"': 28, '#': 29, '$': 30, '%': 31, '&': 32,
+            '‘': 33, '(': 34, ')': 35, '*': 36, '+': 37, ',': 38, '-': 39, '.': 40, '/': 41, '<unk>': 42}
+
 
 # BOW-style word embedding for characters
 def get_word_embeddings(word: str):
@@ -31,11 +32,12 @@ def get_word_embeddings(word: str):
             embedding[char2idx['<unk>']] += 1
     return embedding
 
+
 # Get sentence transformer embeddings
 def get_st_embeddings(
-    sentences: List[str],
-    st_model: SentenceTransformer,
-    batch_size: int = 32
+        sentences: List[str],
+        st_model: SentenceTransformer,
+        batch_size: int = 32
 ):
     """
     Compute the sentence embedding using the Sentence Transformer model.
@@ -51,7 +53,7 @@ def get_st_embeddings(
     sentence_embeddings = None
 
     for i in range(0, len(sentences), batch_size):
-        batch_sentences = sentences[i : i + batch_size]
+        batch_sentences = sentences[i: i + batch_size]
         batch_embeddings = st_model.encode(batch_sentences, convert_to_tensor=True)
         if sentence_embeddings is None:
             sentence_embeddings = batch_embeddings
@@ -60,7 +62,21 @@ def get_st_embeddings(
                 [sentence_embeddings, batch_embeddings], dim=0
             )
 
-    return sentence_embeddings
+    """
+    MAJOR CHANGE HERE: This function now returns a [1 x d] tensor where d is the embedding dimension.
+    This change allows us to combine the resulting tensor with the current word tensor. However, it is
+    going to make the resulting tensor less meaningful. Fixing this will require determining what information
+    we are actually hoping to get out of this embedding!
+    
+    To determine how to proceed with this we are going to have to figure out what we are actually getting out of the
+    sentence encoding.
+    
+    THIS MAY NOT BE A GOOD (PERMANENT) SOLUTION.
+    """
+    #todo: determine if this is correct
+    sum_sentence_embeddings = torch.sum(sentence_embeddings, dim=0)
+    return sum_sentence_embeddings
+
 
 # Creates datasets
 class EmbeddedDataset(torch.utils.data.Dataset):
@@ -83,10 +99,10 @@ class EmbeddedDataset(torch.utils.data.Dataset):
 
 
 def get_dataloader(
-    embeddings: List[Dict[str, torch.Tensor]],
-    labels: List[str],
-    batch_size: int = 1,
-    shuffle: bool = True,
+        embeddings: List[Dict[str, torch.Tensor]],
+        labels: List[str],
+        batch_size: int = 1,
+        shuffle: bool = True,
 ):
     dataset = EmbeddedDataset(embeddings, labels)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

@@ -2,6 +2,7 @@
 import os
 import string
 import random
+import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 # From HW2
@@ -24,16 +25,17 @@ from torch.optim import Adam
 import dataloader
 
 idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i',
-                9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o', 15: 'p', 16: 'q',
-                17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v', 22: 'w', 23: 'x', 24: 'y',
-                25: 'z', 26: ' ', 27: '!', 28: '"', 29: '#', 30: '$', 31: '%', 32: '&', 
-                33: "'", 34: '(', 35: ')', 36: '*', 37: '+', 38: ',', 39: '-', 40: '.', 
-                41: '/', 42: '<unk>'}
+               9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o', 15: 'p', 16: 'q',
+               17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v', 22: 'w', 23: 'x', 24: 'y',
+               25: 'z', 26: ' ', 27: '!', 28: '"', 29: '#', 30: '$', 31: '%', 32: '&',
+               33: "'", 34: '(', 35: ')', 36: '*', 37: '+', 38: ',', 39: '-', 40: '.',
+               41: '/', 42: '<unk>'}
+
 
 # Actual model
 class MyModel(nn.Module):
-    
-    def __init__(self): # , sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int
+
+    def __init__(self):  # , sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int
         """
         Initialize the Feed-Foward model.
         Inputs:
@@ -58,36 +60,36 @@ class MyModel(nn.Module):
         """
         Perform a forward pass through the network.
         Inputs:
-        - context: The sentence embeddings of the context
-        - question: The sentence embeddings of the question
-        - answerA: The sentence embeddings of answer A
-        - answerB: The sentence embeddings of answer B
-        - answerC: The sentence embeddings of answer C
+        - context: torch.Tensor: The sentence embeddings of the context
+        - curr_word: torch.Tensor: The embeddings of the characters of the current word
         Returns:
         - torch.Tensor: The logits for each of the answers
         """
 
-        print(context.shape)
-        print(curr_word.shape)
+        #print(context.shape)
+        #print(curr_word.shape)
 
-        input = torch.cat((context, curr_word), dim=0) # concatenate sentence and word embeddings
-        print(input.shapes)
-        logit = self.fc2(self.act1(self.fc1(input))) # calculate logit
+        _input = torch.cat((context, curr_word), dim=1)  # concatenate sentence and word embeddings
+        #print(_input.shape)
+        fc1ret = self.fc1(_input)
+        actret = self.act1(fc1ret)
+        logit = self.fc2(actret)
+        #logit = self.fc2(self.act1(self.fc1(_input)))  # calculate logit
         return logit
 
     @classmethod
     def load_training_data(cls):
-        st_model = SentenceTransformer("all-mpnet-base-v2") # Make a model
+        st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        train_data = pd.read_csv('../data/tiny.csv') 
-        sentences = train_data['sentence'].tolist() # Load training data as a list
+        _train_data = pd.read_csv('data/tiny.csv')
+        sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
         total_embeddings = []
         for entry in sentences:
             splits = entry.split()
-            context = ' '.join(splits[:-1])
-            context_embedded = dataloader.get_st_embeddings(context, st_model) # Get context embeddings
+
+            context_embedded = dataloader.get_st_embeddings(splits, st_model)  # Get context embeddings
 
             word = splits[-1]
             word_embedded = dataloader.get_word_embeddings(word)
@@ -96,9 +98,9 @@ class MyModel(nn.Module):
 
         # TODO: save the embedded sentences so we don't have to compute this every time
 
-        chars = train_data['label'].tolist() # Load characters (answers) as a list
+        chars = _train_data['label'].tolist()  # Load characters (answers) as a list
 
-        return dataloader.get_dataloader(total_embeddings, chars, 1) # Return dataloader for training
+        return dataloader.get_dataloader(total_embeddings, chars, 1)  # Return dataloader for training
 
     @classmethod
     def load_test_data(cls, fname):
@@ -118,21 +120,28 @@ class MyModel(nn.Module):
 
     def run_train(self, data, work_dir):
         # Hyperparameters for training
-        lr: float = 1e-3,
-        batch_size: int = 32,
-        eval_batch_size: int = 128,
-        n_epochs: int = 1
+        lr: float = 1e-3
+        batch_size: int = 32
+        eval_batch_size: int = 128
+        n_epochs: int = 100
+
+        print("Beginning Training with Parameters:\n---Learning Rate: {l}"
+              "\n---Batch Size: {b}\n---Eval Batch Size: {e}\n---Epochs: {E}"
+              .format(l=lr, b=batch_size, e=eval_batch_size, E=n_epochs))
 
         train_loader = data
-        
+
         loss_fn = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), 1e-3)
 
-        for epoch in range(n_epochs): # Iterate over the epochs
-            print(epoch)
+        progress = 0
 
-            model.train() # Set the model to training mode
-            for batch in train_loader: # Iterate over the batches of the training data
+        for epoch in range(n_epochs):  # Iterate over the epochs
+            sys.stdout.write('\r[{0}{1} {2}%] Epoch: {3}'.format('#' * (int(progress / 10)),
+                             '-' * (int(n_epochs / 10) - int(progress / 10)), progress, epoch))
+
+            model.train()  # Set the model to training mode
+            for batch in train_loader:  # Iterate over the batches of the training data
                 optimizer.zero_grad()  # This is done to zero-out any existing gradients stored from previous steps
 
                 # Get the embeddings for context, question, answerA, answerB, answerC
@@ -151,7 +160,8 @@ class MyModel(nn.Module):
 
                 # Perform a step of optimization
                 optimizer.step()
-
+            progress += 1
+        print()
         self.save(work_dir)
 
     def run_pred(self, data):
@@ -178,10 +188,10 @@ class MyModel(nn.Module):
     def load(cls, work_dir):
         # Load the model
         nn_model = MyModel(
-            sentence_dim=768, # Change this to 768 if you want to train with sentence transformer embeddings
+            sentence_dim=768,  # Change this to 768 if you want to train with sentence transformer embeddings
             word_dim=len(idx_to_char),
-            hidden_dim=200, # You can change this to any number of hidden units you want
-            num_classes=len(idx_to_char) # You can change this to the number of classes for the multiclass case
+            hidden_dim=200,  # You can change this to any number of hidden units you want
+            num_classes=len(idx_to_char)  # You can change this to the number of classes for the multiclass case
         )
         nn_model.load_state_dict(torch.load(f'{work_dir}/model.checkpoint'))
         return nn_model
@@ -206,7 +216,7 @@ if __name__ == '__main__':
         if not os.path.isdir(args.work_dir):
             print('Making working directory {}'.format(args.work_dir))
             os.makedirs(args.work_dir)
-        print('Instatiating model')
+        print('Instantiating model')
         model = MyModel()
         print('Loading training data')
         train_data = MyModel.load_training_data()
