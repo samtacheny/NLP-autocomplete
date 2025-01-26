@@ -33,7 +33,7 @@ idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8
 # Actual model
 class MyModel(nn.Module):
     
-    def __init__(self, sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int):
+    def __init__(self): # , sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int
         """
         Initialize the Feed-Foward model.
         Inputs:
@@ -44,6 +44,10 @@ class MyModel(nn.Module):
         """
 
         super(MyModel, self).__init__()
+        sentence_dim = 768
+        word_dim = len(idx_to_char)
+        hidden_dim = 200
+        output_dim = len(idx_to_char)
 
         # Define the architecture of the model
         self.fc1 = torch.nn.Linear(sentence_dim + word_dim, hidden_dim)
@@ -63,7 +67,11 @@ class MyModel(nn.Module):
         - torch.Tensor: The logits for each of the answers
         """
 
-        input = torch.cat((context, curr_word), dim=1) # concatenate sentence and word embeddings
+        print(context.shape)
+        print(curr_word.shape)
+
+        input = torch.cat((context, curr_word), dim=0) # concatenate sentence and word embeddings
+        print(input.shapes)
         logit = self.fc2(self.act1(self.fc1(input))) # calculate logit
         return logit
 
@@ -71,7 +79,7 @@ class MyModel(nn.Module):
     def load_training_data(cls):
         st_model = SentenceTransformer("all-mpnet-base-v2") # Make a model
 
-        train_data = pd.read_csv('train_cutoff_sentences.csv') 
+        train_data = pd.read_csv('../data/tiny.csv') 
         sentences = train_data['sentence'].tolist() # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
@@ -85,11 +93,12 @@ class MyModel(nn.Module):
             word_embedded = dataloader.get_word_embeddings(word)
 
             total_embeddings.append({'context': context_embedded, 'word': word_embedded})
-        
+
+        # TODO: save the embedded sentences so we don't have to compute this every time
 
         chars = train_data['label'].tolist() # Load characters (answers) as a list
 
-        return dataloader.get_dataloader(total_embeddings, chars) # Return dataloader for training
+        return dataloader.get_dataloader(total_embeddings, chars, 1) # Return dataloader for training
 
     @classmethod
     def load_test_data(cls, fname):
@@ -112,14 +121,15 @@ class MyModel(nn.Module):
         lr: float = 1e-3,
         batch_size: int = 32,
         eval_batch_size: int = 128,
-        n_epochs: int = 10
+        n_epochs: int = 1
 
         train_loader = data
         
         loss_fn = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(model.parameters(), 1e-3)
 
         for epoch in range(n_epochs): # Iterate over the epochs
+            print(epoch)
 
             model.train() # Set the model to training mode
             for batch in train_loader: # Iterate over the batches of the training data
@@ -130,7 +140,7 @@ class MyModel(nn.Module):
                 word_batch = batch["word"]
 
                 # Get the characters
-                char_batch = batch["label"]
+                char_batch = batch["char"]
 
                 # Calculate model logits and loss
                 batch_logits = model(context_batch, word_batch)
@@ -160,9 +170,9 @@ class MyModel(nn.Module):
         # Save the model
         torch.save(self.state_dict(), f'{work_dir}/model.checkpoint')
 
-        # this particular model has nothing to save, but for demonstration purposes we will save a blank file
-        with open(os.path.join(work_dir, 'model.checkpoint'), 'wt') as f:
-            f.write('dummy save')
+        # # this particular model has nothing to save, but for demonstration purposes we will save a blank file
+        # with open(os.path.join(work_dir, 'model.checkpoint'), 'wt') as f:
+        #     f.write('dummy save')
 
     @classmethod
     def load(cls, work_dir):
