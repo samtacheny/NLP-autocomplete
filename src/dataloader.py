@@ -14,6 +14,23 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 from torch.optim import Adam
 
+# Must be contiguous from 0 to num classes (e.g. num characters we care about)
+char2idx = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i': 8,
+                'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16,
+                'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24,
+                'z': 25, ' ': 26, ',': 27, '!': 28, '”': 29, '#': 30, '$': 31,'%': 31, '&': 32,
+                  '‘': 33, '(': 34, ')': 35, '*': 36, '+': 37, ',': 38, '-': 39, '.': 40, '/': 41, '<unk>': 42}
+
+# BOW-style word embedding for characters
+def get_word_embeddings(word: str):
+    embedding = torch.zeros(len(char2idx))
+    for char in word:
+        if char in char2idx.keys():
+            embedding[char2idx[char]] += 1
+        else:
+            embedding[char2idx['<unk>']] += 1
+    return embedding
+
 # Get sentence transformer embeddings
 def get_st_embeddings(
     sentences: List[str],
@@ -52,12 +69,6 @@ class EmbeddedDataset(torch.utils.data.Dataset):
         self.embeddings = embeddings
         self.chars = chars
 
-        # Must be contiguous from 0 to num classes (e.g. num characters we care about)
-        self.char2char_id = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i': 8, 
-                             'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16, 
-                             'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24, 
-                             'z': 25, '.': 26, ',': 27, '!': 28, '?': 29, ' ': 30, '<unk>': 31}
-
     def __len__(self):
         return len(self.embeddings)
 
@@ -67,14 +78,14 @@ class EmbeddedDataset(torch.utils.data.Dataset):
             "context": sample["context"],
             "word": sample["word"],
             # encodes character label as the ASCII value
-            "char": self.char2char_id[self.chars[idx]] if self.chars[idx] in self.char2char_id.keys() else self.char2char_id['<unk>']
+            "char": char2idx[self.chars[idx]] if self.chars[idx] in char2idx.keys() else char2idx['<unk>']
         }
 
 
 def get_dataloader(
     embeddings: List[Dict[str, torch.Tensor]],
     labels: List[str],
-    batch_size: int = 32,
+    batch_size: int = 1,
     shuffle: bool = True,
 ):
     dataset = EmbeddedDataset(embeddings, labels)

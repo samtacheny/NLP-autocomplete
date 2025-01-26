@@ -23,10 +23,12 @@ from torch.optim import Adam
 
 import dataloader
 
-char_to_idx = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i': 8, 
-                'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16, 
-                'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24, 
-                'z': 25, '.': 26, ',': 27, '!': 28, '?': 29, ' ': 30, '<unk>': 31}
+idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i',
+                9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o', 15: 'p', 16: 'q',
+                17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v', 22: 'w', 23: 'x', 24: 'y',
+                25: 'z', 26: ' ', 27: '!', 28: '"', 29: '#', 30: '$', 31: '%', 32: '&', 
+                33: "'", 34: '(', 35: ')', 36: '*', 37: '+', 38: ',', 39: '-', 40: '.', 
+                41: '/', 42: '<unk>'}
 
 # Actual model
 class MyModel(nn.Module):
@@ -67,15 +69,27 @@ class MyModel(nn.Module):
 
     @classmethod
     def load_training_data(cls):
-        # Make a model
-        st_model = SentenceTransformer("all-mpnet-base-v2")
-        # Load training data as a list - TODO: Sophie
-        sentences = None
-        embeddings = dataloader.get_st_embeddings(sentences, st_model) 
-        # Load characters as a list - TODO: Sophie
-        chars = None
+        st_model = SentenceTransformer("all-mpnet-base-v2") # Make a model
 
-        return dataloader.get_dataloader(embeddings, chars)
+        train_data = pd.read_csv('train_cutoff_sentences.csv') 
+        sentences = train_data['sentence'].tolist() # Load training data as a list
+
+        # Split sentences into dictionary with 'context' and 'word'
+        total_embeddings = []
+        for entry in sentences:
+            splits = entry.split()
+            context = ' '.join(splits[:-1])
+            context_embedded = dataloader.get_st_embeddings(context, st_model) # Get context embeddings
+
+            word = splits[-1]
+            word_embedded = dataloader.get_word_embeddings(word)
+
+            total_embeddings.append({'context': context_embedded, 'word': word_embedded})
+        
+
+        chars = train_data['label'].tolist() # Load characters (answers) as a list
+
+        return dataloader.get_dataloader(total_embeddings, chars) # Return dataloader for training
 
     @classmethod
     def load_test_data(cls, fname):
@@ -100,7 +114,7 @@ class MyModel(nn.Module):
         eval_batch_size: int = 128,
         n_epochs: int = 10
 
-        train_loader = dataloader.get_dataloader(data, batch_size=batch_size, shuffle=True) # TODO- get dataloader
+        train_loader = data
         
         loss_fn = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -138,13 +152,8 @@ class MyModel(nn.Module):
             context, words = None
             logits = model(context, words)
             (_, top_indices) = torch.topk(logits, k=3)
-            # TODO: turn top indices into list of three characters
-            top_chars = None
+            top_chars = [idx_to_char[i] for i in list(top_indices)]
             preds.append(''.join(list(top_chars)))
-
-            # # this model just predicts a random character each time
-            # top_guesses = [random.choice(all_chars) for _ in range(3)]
-            # preds.append(''.join(top_guesses))
         return preds
 
     def save(self, work_dir):
@@ -157,13 +166,12 @@ class MyModel(nn.Module):
 
     @classmethod
     def load(cls, work_dir):
-        # TODO: figure out actual dimensions
-
         # Load the model
         nn_model = MyModel(
-            input_dim=50, # Change this to 768 if you want to train with sentence transformer embeddings
-            hidden_dim=100, # You can change this to any number of hidden units you want
-            num_classes=1 # You can change this to the number of classes for the multiclass case
+            sentence_dim=768, # Change this to 768 if you want to train with sentence transformer embeddings
+            word_dim=len(idx_to_char),
+            hidden_dim=200, # You can change this to any number of hidden units you want
+            num_classes=len(idx_to_char) # You can change this to the number of classes for the multiclass case
         )
         nn_model.load_state_dict(torch.load(f'{work_dir}/model.checkpoint'))
         return nn_model
