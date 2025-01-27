@@ -35,7 +35,7 @@ idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8
 # Actual model
 class MyModel(nn.Module):
 
-    def __init__(self):  # , sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int
+    def __init__(self, sentence_dim: int, word_dim: int, hidden_dim: int, output_dim: int):
         """
         Initialize the Feed-Foward model.
         Inputs:
@@ -70,6 +70,7 @@ class MyModel(nn.Module):
         #print(curr_word.shape)
 
         context = context.view(1, 768)
+        curr_word = curr_word.view(1, len(idx_to_char))
 
         _input = torch.cat((context, curr_word), dim=1)  # concatenate sentence and word embeddings
         logit = self.fc2(self.act1(self.fc1(_input)))  # calculate logit
@@ -166,13 +167,24 @@ class MyModel(nn.Module):
     def run_pred(self, data):
         # your code here
         preds = []
+        st_model = SentenceTransformer("all-mpnet-base-v2")
         for inp in data:
+            print(inp)
             # TODO: split into context and words (should be torch.Tensor)
-            context, words = None
-            logits = model(context, words)
+            split = inp.split()
+            if len(split) > 1:
+                sentence = ' '.join(split[:-1])
+            else:
+                sentence = ''
+            word = split[-1]
+            context = dataloader.get_st_embeddings([sentence], st_model)
+            word = dataloader.get_word_embeddings(word)
+
+            logits = model(context, word)
             (_, top_indices) = torch.topk(logits, k=3)
-            top_chars = [idx_to_char[i] for i in list(top_indices)]
+            top_chars = [idx_to_char[i.item()] for i in top_indices[0]]
             preds.append(''.join(list(top_chars)))
+        print(preds)
         return preds
 
     def save(self, work_dir):
@@ -190,7 +202,7 @@ class MyModel(nn.Module):
             sentence_dim=768,  # Change this to 768 if you want to train with sentence transformer embeddings
             word_dim=len(idx_to_char),
             hidden_dim=200,  # You can change this to any number of hidden units you want
-            num_classes=len(idx_to_char)  # You can change this to the number of classes for the multiclass case
+            output_dim=len(idx_to_char)  # You can change this to the number of classes for the multiclass case
         )
         nn_model.load_state_dict(torch.load(f'{work_dir}/model.checkpoint'))
         return nn_model
@@ -216,7 +228,7 @@ if __name__ == '__main__':
             print('Making working directory {}'.format(args.work_dir))
             os.makedirs(args.work_dir)
         print('Instantiating model')
-        model = MyModel()
+        model = MyModel(768, 43, 200, 43)
         print('Loading training data')
         train_data = MyModel.load_training_data()
         print('Training')
