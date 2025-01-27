@@ -80,18 +80,18 @@ class MyModel(nn.Module):
     def load_training_data(cls):
         st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        _train_data = pd.read_csv('data/tiny.csv')
+        _train_data = pd.read_csv('data/train_cutoff_sentences.csv')
         sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
         total_embeddings = []
         for entry in sentences:
             splits = entry.split()
-            merged = ' '.join(splits[:-1])
+            merged = ' '.join(splits[:-1]) # TODO - update in the case there is only one word
 
             context_embedded = dataloader.get_st_embeddings([merged], st_model)  # Get context embeddings
 
-            word = splits[-1]
+            word = splits[-1] # TODO - update in the case the last character is a whitespace
             word_embedded = dataloader.get_word_embeddings(word)
 
             total_embeddings.append({'context': context_embedded, 'word': word_embedded})
