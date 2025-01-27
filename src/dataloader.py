@@ -1,12 +1,5 @@
-import json
-import re
 from typing import List, Tuple, Dict, Union
 from pprint import pprint
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import nltk
-from nltk.tokenize import word_tokenize
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import SentenceTransformer
 import torch

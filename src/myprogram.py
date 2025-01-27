@@ -6,21 +6,13 @@ import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 # From HW2
-import json
-import re
 from typing import List, Tuple, Dict, Union
-from pprint import pprint
-import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
-import nltk
-from nltk.tokenize import word_tokenize
-from sentence_transformers import SentenceTransformer
-from sentence_transformers import SentenceTransformer
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 from torch.optim import Adam
+from sentence_transformers import SentenceTransformer
 
 import dataloader
 
