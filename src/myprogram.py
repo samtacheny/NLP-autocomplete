@@ -5,6 +5,8 @@ import random
 import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 # From HW2
 from typing import List, Tuple, Dict, Union
 import pandas as pd
@@ -16,6 +18,7 @@ from sentence_transformers import SentenceTransformer
 
 import dataloader
 
+# Conversion table for numbers to characters
 idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i',
                9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o', 15: 'p', 16: 'q',
                17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v', 22: 'w', 23: 'x', 24: 'y',
@@ -57,10 +60,6 @@ class MyModel(nn.Module):
         Returns:
         - torch.Tensor: The logits for each of the answers
         """
-
-        #print(context.shape)
-        #print(curr_word.shape)
-
         context = context.view(1, 768)
         curr_word = curr_word.view(1, len(idx_to_char))
 
@@ -72,34 +71,30 @@ class MyModel(nn.Module):
     def load_training_data(cls):
         st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        _train_data = pd.read_csv('data/train_cutoff_sentences.csv')
+        _train_data = pd.read_csv('data/train_cutoff_sentences.csv', encoding='utf-8')
         sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
         total_embeddings = []
         for entry in sentences:
             splits = entry.split()
-            merged = ' '.join(splits[:-1]) # TODO - update in the case there is only one word
-
+            merged = ' '.join(splits[:-1])
             context_embedded = dataloader.get_st_embeddings([merged], st_model)  # Get context embeddings
-
-            word = splits[-1] # TODO - update in the case the last character is a whitespace
+            word = splits[-1] # Empty string in the case that the last character is a whitespace
             word_embedded = dataloader.get_word_embeddings(word)
-
             total_embeddings.append({'context': context_embedded, 'word': word_embedded})
 
         # TODO: save the embedded sentences so we don't have to compute this every time
 
         chars = _train_data['label'].tolist()  # Load characters (answers) as a list
-
         return dataloader.get_dataloader(total_embeddings, chars, 1)  # Return dataloader for training
 
     @classmethod
     def load_test_data(cls, fname):
-        # your code here
         data = []
-        with open(fname) as f:
+        with open(fname, 'r', encoding='utf-8') as f: 
             for line in f:
+                line = line.replace("’","'")
                 inp = line[:-1]  # the last character is a newline
                 data.append(inp)
         return data
@@ -161,8 +156,7 @@ class MyModel(nn.Module):
         preds = []
         st_model = SentenceTransformer("all-mpnet-base-v2")
         for inp in data:
-            print(inp)
-            # TODO: split into context and words (should be torch.Tensor)
+            # print(inp)
             split = inp.split()
             if len(split) > 1:
                 sentence = ' '.join(split[:-1])
@@ -176,7 +170,7 @@ class MyModel(nn.Module):
             (_, top_indices) = torch.topk(logits, k=3)
             top_chars = [idx_to_char[i.item()] for i in top_indices[0]]
             preds.append(''.join(list(top_chars)))
-        print(preds)
+        # print(preds)
         return preds
 
     def save(self, work_dir):
