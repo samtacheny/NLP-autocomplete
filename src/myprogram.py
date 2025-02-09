@@ -25,7 +25,7 @@ idx_to_char = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8
                25: 'z', 26: ' ', 27: '!', 28: '"', 29: '#', 30: '$', 31: '%', 32: '&',
                33: "'", 34: '(', 35: ')', 36: '*', 37: '+', 38: ',', 39: '-', 40: '.',
                41: '/', 42: '<unk>'}
-
+            #, 43: '1', 44: '2', 45: '3', 46: '4', 47: '5', 48: '6',49: '7', 50: '8', 51: '9', 52: '0'}
 
 # Actual model
 class MyModel(nn.Module):
@@ -43,7 +43,7 @@ class MyModel(nn.Module):
         super(MyModel, self).__init__()
         sentence_dim = 768
         word_dim = len(idx_to_char)
-        hidden_dim = 200
+        hidden_dim = 1000
         output_dim = len(idx_to_char)
 
         # Define the architecture of the model
@@ -71,7 +71,7 @@ class MyModel(nn.Module):
     def load_training_data(cls):
         st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        _train_data = pd.read_csv('data/train_cutoff_sentences.csv', encoding='utf-8')
+        _train_data = pd.read_csv('data_new/train_cutoff_sentences.csv', encoding='utf-8')
         sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'

@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 import numpy as np
 
-data_dir = "../data"
+data_dir = "../data_initial"
 
 def load_data():
     train_df = pd.read_csv(
@@ -40,9 +40,9 @@ def dev_to_test_format():
         dev_data = pd.read_csv('data/dev_cutoff_sentences.csv', encoding='utf-8')
         sentences = dev_data['sentence'].tolist()  # Load training data as a list
         chars = dev_data['label'].tolist()  # Load characters (answers) as a list
-        with open("dev_input.txt", mode='w', encoding='utf-8') as input:
+        with open(f'{data_dir}/dev_input.txt', mode='w', encoding='utf-8') as input:
              input.write("\n".join(sentences) + "\n")
-        with open("dev_labels.txt", mode='w', encoding='utf-8') as labels:
+        with open(f'{data_dir}/dev_labels.txt', mode='w', encoding='utf-8') as labels:
              labels.write("\n".join(chars) + "\n")
 
 def main():

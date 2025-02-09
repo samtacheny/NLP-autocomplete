@@ -10,3 +10,4 @@ RUN apt-get update && apt-get install -y curl && \
     export PATH="$HOME/.cargo/bin:$PATH"
 RUN pip install pandas 
 RUN pip install -U sentence-transformers
+# RUN pip install datasets # Don't need this since only used for training data
