@@ -4,15 +4,21 @@ from datasets import load_dataset
 import re
 import csv
 
-sentence_per_article = 20
-train_articles = 2000
-dev_articles = 0.1 * train_articles
+sentence_per_article = 20 # Number of train sentences taken per article
+train_articles = 2000 # Number of articles used for training
+dev_articles = 0.1 * train_articles # Number of articles used for validation
 
 # dataset = load_dataset("wikipedia", "20220301.en")
 data_dir = "data_new"
 
+# What other languages should we incorporate?
+    # One from each language family?
+    # Top 5 languages in the world - Mandarin Chinese, Spanish, English, Hindi, Arabic
+        # Issue - then we need to expand our alphabet
+        # This might also cause issue with sentence transformers
 def load_data():
-    dataset = load_dataset("wikipedia", "20220301.en", trust_remote_code=True)
+    # languages = ['zh', 'es', 'en', 'hi']
+    dataset = load_dataset("wikipedia", "20220301.en", trust_remote_code=True) # Uses English dataset only
     # dataset = load_dataset("wikipedia", "20220301.simple", trust_remote_code=True)
     return dataset
 
@@ -82,16 +88,6 @@ def create_dev(sentences, labels):
              input.write("\n".join(sentences) + "\n")
     with open(f'{data_dir}/dev_labels.txt', mode='w', encoding='utf-8') as output:
              output.write("\n".join(labels) + "\n")
-
-# # Turns CSV file into two txt files for prediction analysis
-# def dev_to_test_format():
-#         dev_data = pd.read_csv('data/dev_cutoff_sentences.csv', encoding='utf-8')
-#         sentences = dev_data['sentence'].tolist()  # Load training data as a list
-#         chars = dev_data['label'].tolist()  # Load characters (answers) as a list
-#         with open("dev_input.txt", mode='w', encoding='utf-8') as input:
-#              input.write("\n".join(sentences) + "\n")
-#         with open("dev_labels.txt", mode='w', encoding='utf-8') as labels:
-#              labels.write("\n".join(chars) + "\n")
 
 def main():
     print('Loading Data')
