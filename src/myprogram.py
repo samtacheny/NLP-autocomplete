@@ -79,7 +79,7 @@ class MyModel(nn.Module):
         start_time = time.time()
         st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        _train_data = pd.read_csv('data_initial/train_cutoff_sentences.csv', encoding='utf-8')
+        _train_data = pd.read_csv('data_new/train_cutoff_sentences_news.csv', encoding='utf-8')
         sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
@@ -88,8 +88,8 @@ class MyModel(nn.Module):
         t2_embeddings = queue.Queue()
 
         middle = int(len(sentences) / 2)
-        t1 = threading.Thread(target=MyModel.threaded_train, args=(sentences[:middle], t1_embeddings, st_model))
-        t2 = threading.Thread(target=MyModel.threaded_train, args=(sentences[middle:], t2_embeddings, st_model))
+        t1 = threading.Thread(target=MyModel.threaded_load_train, args=(sentences[:middle], t1_embeddings, st_model))
+        t2 = threading.Thread(target=MyModel.threaded_load_train, args=(sentences[middle:], t2_embeddings, st_model))
         t1.start()
         t2.start()
         t1.join()
@@ -268,7 +268,7 @@ if __name__ == '__main__':
         assert len(pred) == len(test_data), 'Expected {} predictions but got {}'.format(len(test_data), len(pred))
         model.write_pred(pred, args.test_output)
         if args.debug_mode:
-            with open("data_new/dev_labels.txt") as f:  #CURRENTLY HARDCODED!
+            with open("data_new/dev_labels_news.txt") as f:  #CURRENTLY HARDCODED!
                 accuracy = model.eval_preds(pred, f.read().splitlines())
                 print(f"Accuracy: {accuracy}")
     else:
