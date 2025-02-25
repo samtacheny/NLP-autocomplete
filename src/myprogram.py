@@ -4,6 +4,9 @@ import string
 import random
 import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import threading
+import time
+import queue
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -73,25 +76,47 @@ class MyModel(nn.Module):
 
     @classmethod
     def load_training_data(cls):
+        start_time = time.time()
         st_model = SentenceTransformer("all-mpnet-base-v2")  # Make a model
 
-        _train_data = pd.read_csv('data_new/train_cutoff_sentences.csv', encoding='utf-8')
+        _train_data = pd.read_csv('data_initial/train_cutoff_sentences.csv', encoding='utf-8')
         sentences = _train_data['sentence'].tolist()  # Load training data as a list
 
         # Split sentences into dictionary with 'context' and 'word'
-        total_embeddings = []
-        for entry in sentences:
-            splits = entry.split()
-            merged = ' '.join(splits[:-1])
-            context_embedded = dataloader.get_st_embeddings([merged], st_model)  # Get context embeddings
-            word = splits[-1]  # Empty string in the case that the last character is a whitespace
-            word_embedded = dataloader.get_word_embeddings(word)
-            total_embeddings.append({'context': context_embedded, 'word': word_embedded})
+
+        t1_embeddings = queue.Queue()
+        t2_embeddings = queue.Queue()
+
+        middle = int(len(sentences) / 2)
+        t1 = threading.Thread(target=MyModel.threaded_train, args=(sentences[:middle], t1_embeddings, st_model))
+        t2 = threading.Thread(target=MyModel.threaded_train, args=(sentences[middle:], t2_embeddings, st_model))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
         # TODO: save the embedded sentences so we don't have to compute this every time
-
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed Time to Load Training Data: {elapsed_time:.4f} Seconds")
         chars = _train_data['label'].tolist()  # Load characters (answers) as a list
+        total_embeddings = []
+        while t1_embeddings.qsize() > 0:
+            total_embeddings.append(t1_embeddings.get())
+        while t2_embeddings.qsize() > 0:
+            total_embeddings.append(t2_embeddings.get())
         return dataloader.get_dataloader(total_embeddings, chars, 1)  # Return dataloader for training
+
+    @classmethod
+    def threaded_load_train(cls, sentence_block, total_embeddings, st_model):
+        for entry in sentence_block:
+            splits = entry.split()
+            merged = ' '.join(splits[:-1])
+            context_embedded = dataloader.get_st_embeddings([merged], st_model)
+            word = splits[-1]
+            word_embedded = dataloader.get_word_embeddings(word)
+            total_embeddings.put({'context': context_embedded, 'word': word_embedded})
+
 
     @classmethod
     def load_test_data(cls, fname):
