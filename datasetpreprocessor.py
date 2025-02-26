@@ -40,13 +40,13 @@ def cutoff_sentence(dataset):
              break
         text = article["text"]
         # Removes references
-        reference_index = text.rfind("References")
+        reference_index = text.rfind("References") # TODO: Need to update this for non-English languages
         text = text[:reference_index]
         # Split on sentences
-        sentences = text.split(".") # Include other forms of punctuation?
+        sentences = text.split(".")
         article_counter = 0
         for s in sentences:
-            # Remove text with lots of numbers
+            # Ignore sentences with lots of numbers (throws off the flow once removed)
             num_numbers = len(re.findall('[0-9]', s))
             if num_numbers > 4:
                  continue
@@ -80,7 +80,7 @@ def cutoff_sentence(dataset):
         sentences = text.split(".") # Include other forms of punctuation?
         article_counter = 0
         for s in sentences:
-            # Remove text with lots of numbers
+            # Ignore sentences with lots of numbers (throws off the flow once removed)
             num_numbers = len(re.findall('[0-9]', s))
             if num_numbers > 4:
                  continue
