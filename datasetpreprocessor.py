@@ -19,14 +19,15 @@ data_dir = "data_new"
 # Romance, Romance, Germnanic, Germanic, Austronesian, Slavic, Austroasiatic
 # Spanish, French, English, German, Cebuano, Polish, Vietnemese, Swedish
 def load_data():
-    languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'sv']
+    languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'vi', 'sv']
+    # languages = ['ceb']
     datasets = []
     for lang in languages:
         datasets.append(load_dataset("wikimedia/wikipedia", f"20231101.{lang}", trust_remote_code=True))
         # datasets.append(load_dataset("wikipedia", "20220301.simple", trust_remote_code=True))
     return datasets
 
-def cutoff_sentence(dataset):
+def cutoff_sentence(dataset, reference):
     dataset = dataset.shuffle()
     train_valid = dataset['train'].train_test_split(test_size=0.2)
     train_data = train_valid['train']
@@ -40,8 +41,9 @@ def cutoff_sentence(dataset):
              break
         text = article["text"]
         # Removes references
-        reference_index = text.rfind("References") # TODO: Need to update this for non-English languages
-        text = text[:reference_index]
+        for word in reference:
+            reference_index = text.rfind(word) 
+            text = text[:reference_index]
         # Split on sentences
         sentences = text.split(".")
         article_counter = 0
@@ -50,7 +52,7 @@ def cutoff_sentence(dataset):
             num_numbers = len(re.findall('[0-9]', s))
             if num_numbers > 4:
                  continue
-            s = re.sub('[0-9]+', '', s) # Remove numbers
+            s = re.sub('[0-9]+', ' ', s) # Remove numbers
             s = re.sub('\n+', '', str(s)) # Remove newlines
             s = re.sub("' '+", ' ', s) # Standardize spaces
             s = s.strip() # Strip leading whitespace
@@ -74,8 +76,9 @@ def cutoff_sentence(dataset):
              break
         text = article["text"]
         # Removes references
-        reference_index = text.rfind("References")
-        text = text[:reference_index]
+        for word in reference:
+            reference_index = text.rfind(word) 
+            text = text[:reference_index]
         # Split on sentences
         sentences = text.split(".") # Include other forms of punctuation?
         article_counter = 0
@@ -116,20 +119,21 @@ def main():
     print('Loading Data')
     datasets = load_data()
     print('Making Sentences')
+    references = [['Referencias'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Tham khảo'], ['Noter', 'Källor', 'Referenser']]
     # Concatenate languages
     train_sentences = np.array([])
     train_labels = np.array([])
     dev_sentences = np.array([])
     dev_labels = np.array([])
-    i = 1
-    for dataset in datasets:
-        print(f'Language {i}')
-        t_sent, t_lab, d_sent, d_lab = cutoff_sentence(dataset)
+    for i in range(len(datasets)):
+        print(f'Language {i + 1}')
+        dataset = datasets[i]
+        reference = references[i]
+        t_sent, t_lab, d_sent, d_lab = cutoff_sentence(dataset, reference)
         train_sentences = np.append(train_sentences, t_sent)
         train_labels = np.append(train_labels, t_lab)
         dev_sentences = np.append(dev_sentences, d_sent)
         dev_labels = np.append(dev_labels, d_lab)
-        i = i + 1
     # Shuffle lists
     p_train = np.random.permutation(len(train_sentences))
     train_sentences = train_sentences[p_train]
