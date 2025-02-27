@@ -3,31 +3,17 @@ import numpy as np
 from datasets import load_dataset
 import re
 
-# 80/20 train/dev split
-sentence_per_article = 10 # Number of train sentences taken per article
-train_articles = 1000 # Number of articles used for training
-num_train_sentences = sentence_per_article * train_articles
-dev_articles = 0.2 * train_articles # Number of articles used for validation
-num_dev_sentences = sentence_per_article * dev_articles
-
-# dataset = load_dataset("wikipedia", "20220301.en")
 data_dir = "data_new"
+data_suffix = 'multi'
 
-# Top 15 numbers of wiki articles
-# English, Cebuano, German, French, Swedish, Dutch, Spanish, Italian, Polish, Vietnamese
-
-# Romance, Romance, Germnanic, Germanic, Austronesian, Slavic, Austroasiatic
-# Spanish, French, English, German, Cebuano, Polish, Vietnemese, Swedish
-def load_data():
-    languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'vi', 'sv']
-    # languages = ['ceb']
+def load_data(languages):
     datasets = []
     for lang in languages:
         datasets.append(load_dataset("wikimedia/wikipedia", f"20231101.{lang}", trust_remote_code=True))
         # datasets.append(load_dataset("wikipedia", "20220301.simple", trust_remote_code=True))
     return datasets
 
-def cutoff_sentence(dataset, reference):
+def cutoff_sentence(dataset, reference, num_train_sentences, num_dev_sentences, sentence_per_article):
     dataset = dataset.shuffle()
     train_valid = dataset['train'].train_test_split(test_size=0.2)
     train_data = train_valid['train']
@@ -54,7 +40,7 @@ def cutoff_sentence(dataset, reference):
                  continue
             s = re.sub('[0-9]+', ' ', s) # Remove numbers
             s = re.sub('\n+', '', str(s)) # Remove newlines
-            s = re.sub("' '+", ' ', s) # Standardize spaces
+            s = re.sub("[\u200b\xa0 ]+", ' ', s) # Standardize spaces
             s = s.strip() # Strip leading whitespace
             # print(s)
             sen_len = len(s)
@@ -87,9 +73,9 @@ def cutoff_sentence(dataset, reference):
             num_numbers = len(re.findall('[0-9]', s))
             if num_numbers > 4:
                  continue
-            s = re.sub('[0-9]+', '', s) # Remove numbers
+            s = re.sub('[0-9]+', ' ', s) # Remove numbers
             s = re.sub('\n+', '', str(s)) # Remove newlines
-            s = re.sub("' '+", ' ', s) # Standardize spaces
+            s = re.sub("[\u200b\xa0 ]+", ' ', s) # Standardize spaces
             s = s.strip() # Strip leading whitespace
             # print(s)
             sen_len = len(s)
@@ -107,19 +93,23 @@ def cutoff_sentence(dataset, reference):
 
 def create_train(sentences, labels):
     train_df = pd.DataFrame(data={'sentence': sentences, 'label': labels})
-    train_df.to_csv(f'{data_dir}/train_cutoff_sentences_multi.csv', index=False)
+    train_df.to_csv(f'{data_dir}/train_cutoff_sentences_{data_suffix}.csv', index=False)
 
 def create_dev(sentences, labels):
-    with open(f'{data_dir}/dev_input_multi.txt', mode='w', encoding='utf-8') as input:
+    with open(f'{data_dir}/dev_input_{data_suffix}.txt', mode='w', encoding='utf-8') as input:
              input.write("\n".join(sentences) + "\n")
-    with open(f'{data_dir}/dev_labels_multi.txt', mode='w', encoding='utf-8') as output:
+    with open(f'{data_dir}/dev_labels_{data_suffix}.txt', mode='w', encoding='utf-8') as output:
              output.write("\n".join(labels) + "\n")
+
+sentence_per_article = 10 # Number of train sentences taken per article
+languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'sv'] # Spanish, French, English, German, Cebuano, Polish, Swedish
+train_length = [1500, 1500, 1500, 1500, 500, 500, 500] * sentence_per_article
+references = [['Referencias'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Noter', 'Källor', 'Referenser']]
 
 def main():
     print('Loading Data')
-    datasets = load_data()
+    datasets = load_data(languages)
     print('Making Sentences')
-    references = [['Referencias'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Tham khảo'], ['Noter', 'Källor', 'Referenser']]
     # Concatenate languages
     train_sentences = np.array([])
     train_labels = np.array([])
@@ -127,9 +117,11 @@ def main():
     dev_labels = np.array([])
     for i in range(len(datasets)):
         print(f'Language {i + 1}')
-        dataset = datasets[i]
-        reference = references[i]
-        t_sent, t_lab, d_sent, d_lab = cutoff_sentence(dataset, reference)
+        dataset = datasets[i] # Dataset
+        reference = references[i] # List of words to cut out references
+        num_train_sentences = train_length[i] # Number of sentences for training
+        num_dev_sentences = 0.2 * num_train_sentences # Number of sentences for validation
+        t_sent, t_lab, d_sent, d_lab = cutoff_sentence(dataset, reference, num_train_sentences, num_dev_sentences, sentence_per_article)
         train_sentences = np.append(train_sentences, t_sent)
         train_labels = np.append(train_labels, t_lab)
         dev_sentences = np.append(dev_sentences, d_sent)
