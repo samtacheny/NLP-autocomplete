@@ -43,7 +43,7 @@ class MyModel(nn.Module):
 
         self.lstm = nn.LSTM(input_size=1, hidden_size=256, num_layers=2, batch_first=True)
         self.dropout = nn.Dropout(0.3)
-        self.linear = nn.Linear(256, 76)
+        self.linear = None #nn.Linear(256, 76)
 
     def forward(self, x) -> torch.Tensor:
         """
@@ -94,11 +94,11 @@ class MyModel(nn.Module):
         dataX = []
         dataY = []
         for i, row in _train_data.iterrows():
-            currX = torch.tensor([self.char_to_int.index(char) if char in global_char_dict else 0 for char in row["sentence"].lower() ])
+            currX = torch.tensor([self.char_to_int.index(char) if char in self.char_to_int else 0 for char in row["sentence"].lower() ])
             currX = currX.to("cuda" if torch.cuda.is_available() else "cpu")
             dataX.append(currX)
             label = row["label"].lower()
-            dataY.append(self.char_to_int.index(label) if label in global_char_dict else 0)
+            dataY.append(self.char_to_int.index(label) if label in self.char_to_int else 0)
 
         X = pad_sequence(dataX, batch_first=True, padding_value = 0, padding_side='left')
         X = X[:, -100:].reshape((len(dataX), 100, 1))
@@ -209,9 +209,15 @@ class MyModel(nn.Module):
                 # generate logits as output from the model
                 prediction = model(x)
                 # convert logits into one character
-                indices = torch.topk(prediction, 3).indices.cpu().numpy()
-                #print(indices[0])
-                values = [self.char_to_int[i] for i in indices[0]]
+                indices = torch.topk(prediction, 4).indices.cpu().numpy()
+                values = []
+                i = 0
+                while len(values) < 3:
+                    ind = indices[0][i]
+                    if ind != 0:
+                        values.append(self.char_to_int[ind])
+                    i += 1
+                #values = [self.char_to_int[i] for i in indices[0]]
                 preds.append("".join(values))
 
                 end_time = time.time()
