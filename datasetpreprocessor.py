@@ -3,8 +3,8 @@ import numpy as np
 from datasets import load_dataset
 import re
 
-data_dir = "data_new"
-data_suffix = 'multi'
+data_dir = "data_large"
+data_suffix = 'large'
 
 def load_data(languages):
     datasets = []
@@ -44,12 +44,12 @@ def cutoff_sentence(dataset, symbols, reference, num_train_sentences, num_dev_se
             s = re.sub('[‘’]', '\'', s) # Replace quotation marks
             s = re.sub("[“”„]", '"', s)
             for sym in symbols: # Remove symbols
-                 s = s.replace(sym, '')
-            s = re.sub('\n+', '', s) # Remove newlines
+                 s = s.replace(sym, ' ')
+            s = re.sub('\n+', ' ', s) # Remove newlines
             s = re.sub("[\u200b\xa0 ]+", ' ', s) # Standardize spaces
             s = s.strip() # Strip leading whitespace
             sen_len = len(s)
-            if sen_len > 10 and s[0].isupper(): # Keep only longish sentences
+            if sen_len > 20 and s[0].isupper(): # Keep only longish sentences
                 cutoff = np.random.randint(5, sen_len)
                 train_sentences.append(s[0:cutoff])
                 train_labels.append(s[cutoff].lower())
@@ -84,12 +84,12 @@ def cutoff_sentence(dataset, symbols, reference, num_train_sentences, num_dev_se
             s = re.sub('[‘’]', '\'', s) # Replace quotation marks
             s = re.sub("[“”„]", '"', s)
             for sym in symbols: # Remove symbols
-                 s = s.replace(sym, '')
-            s = re.sub('\n+', '', s) # Remove newlines
+                 s = s.replace(sym, ' ')
+            s = re.sub('\n+', ' ', s) # Remove newlines
             s = re.sub("[\u200b\xa0 ]+", ' ', s) # Standardize spaces
             s = s.strip() # Strip leading whitespace
             sen_len = len(s)
-            if sen_len > 10 and s[0].isupper(): # Keep only longish sentences
+            if sen_len > 20 and s[0].isupper(): # Keep only longish sentences
                 cutoff = np.random.randint(5, sen_len)
                 dev_sentences.append(s[0:cutoff])
                 dev_labels.append(s[cutoff].lower())
@@ -113,9 +113,10 @@ def create_dev(sentences, labels):
 
 sentence_per_article = 10 # Number of train sentences taken per article
 languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'sv'] # Spanish, French, English, German, Cebuano, Polish, Swedish
-train_length = [1500, 1500, 1500, 1500, 500, 500, 500] * sentence_per_article
-references = [['Referencias'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Noter', 'Källor', 'Referenser']]
-symbols = ['«', '»', '°', '(', ')', '-', ';', '–', '!', '|', '/', '+', '[', ']', '*', '—', '=', '#', '$', '.']
+num_articles = [1500, 1500, 2500, 1500, 500, 500, 500] 
+train_length = [i * sentence_per_article for i in num_articles]
+references = [['Referencias', 'Notas'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Noter', 'Källor', 'Referenser']]
+symbols = ['«', '»', '°', '(', ')', '-', ';', '–', '!', '|', '/', '+', '[', ']', '*', '—', '=', '#', '$', '.', ':']
 
 def main():
     print('Loading Data')
