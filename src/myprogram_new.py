@@ -3,6 +3,7 @@ import os
 import string
 import random
 import sys
+import time
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 # From HW2
@@ -42,7 +43,7 @@ class MyModel(nn.Module):
 
         self.lstm = nn.LSTM(input_size=1, hidden_size=256, num_layers=2, batch_first=True)
         self.dropout = nn.Dropout(0.3)
-        self.linear = None # nn.Linear(256, n_vocab)
+        self.linear = nn.Linear(256, 76)
 
     def forward(self, x) -> torch.Tensor:
         """
@@ -94,6 +95,7 @@ class MyModel(nn.Module):
         dataY = []
         for i, row in _train_data.iterrows():
             currX = torch.tensor([self.char_to_int.index(char) if char in global_char_dict else 0 for char in row["sentence"].lower() ])
+            currX = currX.to("cuda" if torch.cuda.is_available() else "cpu")
             dataX.append(currX)
             label = row["label"].lower()
             dataY.append(self.char_to_int.index(label) if label in global_char_dict else 0)
@@ -102,6 +104,9 @@ class MyModel(nn.Module):
         X = X[:, -100:].reshape((len(dataX), 100, 1))
         X = X / float(self.n_vocab)
         y = torch.tensor(dataY)
+        X = X.to("cuda" if torch.cuda.is_available() else "cpu")
+        y = y.to("cuda" if torch.cuda.is_available() else "cpu")
+
         loader = data.DataLoader(data.TensorDataset(X, y), shuffle=True, batch_size=128)
         return loader
 
@@ -114,6 +119,7 @@ class MyModel(nn.Module):
                 inp = line[:-1]  # the last character is a newline
                 test_data.append(inp)
         loader = data.DataLoader(test_data, shuffle=False, batch_size=1)
+
         return loader
 
     @classmethod
@@ -123,7 +129,7 @@ class MyModel(nn.Module):
                 f.write('{}\n'.format(p))
 
     def run_train(self, data, work_dir):
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(device)
         self.to(device)
         # Hyperparameters for training
@@ -142,11 +148,15 @@ class MyModel(nn.Module):
 
         best_model = None
         best_loss = np.inf
+        total_time = 0.0
         for epoch in range(n_epochs):
+            start_time = time.time()
             self.train()
             for X_batch, y_batch in data:
-                y_pred = self(X_batch.to(device))
-                loss = loss_fn(y_pred, y_batch.to(device))
+                X_batch = X_batch.to(device, non_blocking=True)
+                y_batch = y_batch.to(device, non_blocking=True)
+                y_pred = self(X_batch)
+                loss = loss_fn(y_pred, y_batch)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -160,16 +170,31 @@ class MyModel(nn.Module):
                 if loss < best_loss:
                     best_loss = loss
                     self.best_model = self.state_dict()
-                print("Epoch %d: Cross-entropy: %.4f" % (epoch, loss))
+                end_time = time.time()
+                total_time += end_time - start_time
+                percent_done = round((epoch + 1)/n_epochs * 100, 1)
+                average_time = round(total_time / (epoch + 1), 3)
+                sys.stdout.write('\r[{0}{1} {2}%] Epoch: {3} Average Epoch Time: {4}'.format
+                                 ('#' * (int(epoch / 10)),'-' * (int(n_epochs / 10) - int(epoch / 10)),
+                                  percent_done, epoch + 1, average_time))
 
         self.save(work_dir)
+        print()
 
     def run_pred(self, data):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(device)
         # your code here
         preds = []
+        total_time = 0.0
+        total_len = len(data)
+        progress = 0
         for prompt in data:
+            progress += 1
+            start_time = time.time()
             pattern = [self.char_to_int.index(c) if c in self.char_to_int else 0 for c in prompt[0].lower()]
             pattern = torch.as_tensor(pattern)
+            pattern = pattern.to(device)
             if pattern.shape[0] > 100:
                 pattern = pattern[-100:]
             else:
@@ -179,15 +204,24 @@ class MyModel(nn.Module):
             self.eval()
             with torch.no_grad():
                 # format input array of int into PyTorch tensor
-                x = np.reshape(pattern, (1, len(pattern), 1)) / float(self.n_vocab)
-                x = torch.tensor(x, dtype=torch.float32)
+                x = np.reshape(pattern.cpu(), (1, len(pattern), 1)) / float(self.n_vocab)
+                x = torch.tensor(x, dtype=torch.float32, device=device)
                 # generate logits as output from the model
                 prediction = model(x)
                 # convert logits into one character
-                indices = torch.topk(prediction, 3).indices.numpy()
+                indices = torch.topk(prediction, 3).indices.cpu().numpy()
                 #print(indices[0])
                 values = [self.char_to_int[i] for i in indices[0]]
                 preds.append("".join(values))
+
+                end_time = time.time()
+                total_time += end_time - start_time
+                percent_done = round(total_len/progress * 100, 1)
+                average_time = round(total_time / progress, 3)
+                sys.stdout.write('\r[{0}{1} {2}%] Prediction: {3} Average Prediction Time: {4}'.format
+                                 ('#' * (int(progress / 10)),'-' * (int(total_len / 10) - int(progress / 10)),
+                                  percent_done, progress + 1, average_time))
+        print()
         return preds
 
     def save(self, work_dir):
@@ -198,7 +232,7 @@ class MyModel(nn.Module):
     def load(cls, work_dir):
         # Load the model
         nn_model = MyModel()
-        best_model, char_to_int = torch.load(f'{work_dir}/lstm.multi.stopearly.checkpoint', map_location=torch.device('cpu'))
+        best_model, char_to_int = torch.load(f'{work_dir}/lstm.model.checkpoint', map_location=torch.device('cpu'))
         nn_model.linear = nn.Linear(256, len(char_to_int))
         nn_model.load_state_dict(best_model)
         nn_model.char_to_int = char_to_int
@@ -221,7 +255,7 @@ if __name__ == '__main__':
             print('Making working directory {}'.format(args.work_dir))
             os.makedirs(args.work_dir)
         print('Instantiating model')
-        model = MyModel()
+        model = MyModel().to("cuda" if torch.cuda.is_available() else "cpu")
         print('Loading training data')
         train_data = model.load_training_data()
         print('Training')
@@ -230,7 +264,7 @@ if __name__ == '__main__':
         model.save(args.work_dir)
     elif args.mode == 'test':
         print('Loading model')
-        model = MyModel.load(args.work_dir)
+        model = MyModel.load(args.work_dir).to("cuda" if torch.cuda.is_available() else "cpu")
         print('Loading test data from {}'.format(args.test_data))
         test_data = MyModel.load_test_data(args.test_data)
         print('Making predictions')
