@@ -22,7 +22,7 @@ from torch.nn.utils.rnn import pad_sequence
 from alphabet_detector import AlphabetDetector
 ad = AlphabetDetector()
 
-global_char_dict = ['a', 'b', 'c',  'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/']
+# global_char_dict = ['a', 'b', 'c',  'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/']
 # Actual model
 class MyModel(nn.Module):
 
@@ -76,14 +76,17 @@ class MyModel(nn.Module):
 
             #chars.update(s.lower())
 
-        for a in global_char_dict:
-            if a not in char_dict:
-                    char_dict[a] = 1000
+        # for a in global_char_dict:
+        #     if a not in char_dict:
+        #             char_dict[a] = 1000
 
         self.char_to_int = ["<unk>"]
         for c in char_dict.keys():
-            if (c in global_char_dict or char_dict[c] >= 10) and ad.is_latin(u"" + c): # and c != "†":
+            if (char_dict[c] >= 50) and ad.is_latin(u"" + c): # and c != "†": # Set threshold to 50
                 self.char_to_int.append(c)
+        # for c in char_dict.keys():
+        #     if (c in global_char_dict or char_dict[c] >= 10) and ad.is_latin(u"" + c): # and c != "†":
+        #         self.char_to_int.append(c)
 
 
         self.n_vocab = len(self.char_to_int)
