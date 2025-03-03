@@ -22,7 +22,6 @@ from torch.nn.utils.rnn import pad_sequence
 from alphabet_detector import AlphabetDetector
 ad = AlphabetDetector()
 
-# global_char_dict = ['a', 'b', 'c',  'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/']
 # Actual model
 class MyModel(nn.Module):
 
@@ -41,7 +40,7 @@ class MyModel(nn.Module):
         self.n_vocab = -1
         self.best_model = None
 
-        self.lstm = nn.LSTM(input_size=1, hidden_size=256, num_layers=2, batch_first=True)
+        self.lstm = nn.LSTM(input_size=1, hidden_size=256, num_layers=2, batch_first=True, dropout = .2)
         self.dropout = nn.Dropout(0.3)
         self.linear = None #nn.Linear(256, 76)
 
@@ -63,7 +62,7 @@ class MyModel(nn.Module):
         return x
 
     def load_training_data(self):
-        _train_data = pd.read_csv('data_new/train_cutoff_sentences_multi.csv', encoding='utf-8')
+        _train_data = pd.read_csv('train_cutoff_sentences_multi.csv', encoding='utf-8')
         print(_train_data.shape)
         chars = set()
         char_dict = {}
@@ -82,11 +81,8 @@ class MyModel(nn.Module):
 
         self.char_to_int = ["<unk>"]
         for c in char_dict.keys():
-            if (char_dict[c] >= 50) and ad.is_latin(u"" + c): # and c != "†": # Set threshold to 50
+            if char_dict[c] >= 100 and ad.is_latin(u"" + c): # and c != "†":
                 self.char_to_int.append(c)
-        # for c in char_dict.keys():
-        #     if (c in global_char_dict or char_dict[c] >= 10) and ad.is_latin(u"" + c): # and c != "†":
-        #         self.char_to_int.append(c)
 
 
         self.n_vocab = len(self.char_to_int)
@@ -136,7 +132,7 @@ class MyModel(nn.Module):
         print(device)
         self.to(device)
         # Hyperparameters for training
-        n_epochs = 300
+        n_epochs = 80
         batch_size = 512
         eval_batch_size = 2048
         lr = 1e-3
@@ -146,7 +142,7 @@ class MyModel(nn.Module):
               .format(l=lr, b=batch_size, e=eval_batch_size, E=n_epochs))
 
         loss_fn = torch.nn.CrossEntropyLoss()
-        optimizer = optim.Adam(self.parameters(), lr)
+        optimizer = optim.Adam(self.parameters(), lr, weight_decay=1e-5)
         loss_fn = nn.CrossEntropyLoss(reduction="sum")
 
         best_model = None
@@ -162,6 +158,7 @@ class MyModel(nn.Module):
                 loss = loss_fn(y_pred, y_batch)
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=3.0)
                 optimizer.step()
             # Validation
             self.eval()
@@ -173,6 +170,7 @@ class MyModel(nn.Module):
                 if loss < best_loss:
                     best_loss = loss
                     self.best_model = self.state_dict()
+                print(loss)
                 end_time = time.time()
                 total_time += end_time - start_time
                 percent_done = round((epoch + 1)/n_epochs * 100, 1)
@@ -212,9 +210,23 @@ class MyModel(nn.Module):
                 # generate logits as output from the model
                 prediction = model(x)
                 # convert logits into one character
-                indices = torch.topk(prediction, 4).indices.cpu().numpy()
+
+                logits = prediction / 1.4
+                top_k_values, top_k_indices = torch.topk(logits, 10)
+                mask = torch.zeros_like(logits)
+                mask.scatter_(dim=-1, index=top_k_indices, value=1)
+                
+                logits = logits * mask + (1 - mask) * -1e10
+                
+                probabilities = F.softmax(logits, dim=-1)
+                
+                # Sample from the probability distribution
+                indices = torch.multinomial(probabilities, 4)
+                # indices = torch.topk(prediction, 4).indices.cpu().numpy()
+
                 values = []
                 i = 0
+                #np.random.choice(range(len(prediction)), size = (4), replace = False, p = prediction)
                 while len(values) < 3:
                     ind = indices[0][i]
                     if ind != 0:
@@ -247,39 +259,3 @@ class MyModel(nn.Module):
         nn_model.char_to_int = char_to_int
         return nn_model
 
-
-
-if __name__ == '__main__':
-    parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('mode', choices=('train', 'test'), help='what to run')
-    parser.add_argument('--work_dir', help='where to save', default='work')
-    parser.add_argument('--test_data', help='path to test data', default='example/input.txt')
-    parser.add_argument('--test_output', help='path to write test predictions', default='pred.txt')
-    args = parser.parse_args()
-
-    random.seed(0)
-
-    if args.mode == 'train':
-        if not os.path.isdir(args.work_dir):
-            print('Making working directory {}'.format(args.work_dir))
-            os.makedirs(args.work_dir)
-        print('Instantiating model')
-        model = MyModel().to("cuda" if torch.cuda.is_available() else "cpu")
-        print('Loading training data')
-        train_data = model.load_training_data()
-        print('Training')
-        model.run_train(train_data, args.work_dir)
-        print('Saving model')
-        model.save(args.work_dir)
-    elif args.mode == 'test':
-        print('Loading model')
-        model = MyModel.load(args.work_dir).to("cuda" if torch.cuda.is_available() else "cpu")
-        print('Loading test data from {}'.format(args.test_data))
-        test_data = MyModel.load_test_data(args.test_data)
-        print('Making predictions')
-        pred = model.run_pred(test_data)
-        print('Writing predictions to {}'.format(args.test_output))
-        assert len(pred) == len(test_data), 'Expected {} predictions but got {}'.format(len(test_data), len(pred))
-        model.write_pred(pred, args.test_output)
-    else:
-        raise NotImplementedError('Unknown mode {}'.format(args.mode))
