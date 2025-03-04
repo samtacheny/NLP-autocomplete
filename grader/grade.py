@@ -10,14 +10,20 @@ args = parser.parse_args()
 
 
 def load_pred(fname, force_limit=None):
-    with open(fname) as f:
+    with open(fname, encoding='UTF-8') as f:
+        line_num = 0
         loaded = []
+        #try:
         for line in f:
             line = line[:-1].lower()
             if force_limit is not None:
                 line = line[:force_limit]
             loaded.append(line)
+            line_num += 1
         return loaded
+        #except UnicodeDecodeError:
+            #print("ERROR AT LINE", line_num)
+            #exit()
 
 
 pred = load_pred(args.fpred, force_limit=3)

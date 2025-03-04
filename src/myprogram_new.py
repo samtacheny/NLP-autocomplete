@@ -69,7 +69,7 @@ class MyModel(nn.Module):
         return x
 
     def load_training_data(self):
-        _train_data = pd.read_csv('train_cutoff_sentences_multi.csv', encoding='utf-8')
+        _train_data = pd.read_csv('data_large/train_cutoff_sentences_final.csv', encoding='utf-8')
         print(_train_data.shape)
         chars = set()
         char_dict = {}
@@ -184,17 +184,16 @@ class MyModel(nn.Module):
                     best_loss = loss
                     self.best_model = self.state_dict()
                 self.losses.append(loss)
-                print(loss)
                 end_time = time.time()
                 total_time += end_time - start_time
                 percent_done = round((epoch + 1)/n_epochs * 100, 1)
                 average_time = round(total_time / (epoch + 1), 3)
-                sys.stdout.write('\r[{0}{1} {2}%] Epoch: {3} Average Epoch Time: {4}'.format
-                                 ('#' * (int(epoch / 10)),'-' * (int(n_epochs / 10) - int(epoch / 10)),
-                                  percent_done, epoch + 1, average_time))
+                #sys.stdout.write('\r[{0}{1} {2}%] Epoch: {3} Average Epoch Time: {4} Loss: {5}'.format
+                #                 ('#' * (int(epoch / 10)), '-' * (int(n_epochs / 10) - int(epoch / 10)),
+                #                  percent_done, epoch + 1, average_time, loss))
 
         self.save(work_dir)
-        print()
+        #print()
 
     def run_pred(self, data):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -255,21 +254,21 @@ class MyModel(nn.Module):
                 total_time += end_time - start_time
                 percent_done = round(total_len/progress * 100, 1)
                 average_time = round(total_time / progress, 3)
+                htg = int(progress / total_len) * 100
                 #sys.stdout.write('\r[{0}{1} {2}%] Prediction: {3} Average Prediction Time: {4}'.format
-                #                 ('#' * (int(progress / 10)),'-' * (int(total_len / 10) - int(progress / 10)),
-                #                  percent_done, progress + 1, average_time))
+                #                 ('#' * htg, '-' * (100 - htg), percent_done, progress + 1, average_time))
         #print()
         return preds
 
     def save(self, work_dir):
         # Save the model
-        torch.save([self.best_model, self.char_to_int], f'{work_dir}/lstm_multi.checkpoint')
+        torch.save([self.best_model, self.char_to_int], f'{work_dir}/lstm_multi_f.checkpoint')
 
     @classmethod
     def load(cls, work_dir):
         # Load the model
         nn_model = MyModel()
-        best_model, char_to_int = torch.load(f'{work_dir}/lstm_multi.checkpoint', map_location=torch.device('cpu'))
+        best_model, char_to_int = torch.load(f'{work_dir}/lstm_multi_f.checkpoint', map_location=torch.device('cpu'))
         nn_model.linear = nn.Linear(256, len(char_to_int))
         nn_model.embedding = nn.Embedding(len(char_to_int), 10)
         nn_model.load_state_dict(best_model)
