@@ -4,7 +4,7 @@ from datasets import load_dataset
 import re
 
 data_dir = "data_large"
-data_suffix = 'large'
+data_suffix = 'final'
 
 def load_data(languages):
     datasets = []
@@ -112,11 +112,14 @@ def create_dev(sentences, labels):
              output.write("\n".join(labels) + "\n")
 
 sentence_per_article = 10 # Number of train sentences taken per article
-languages = ['es', 'fr', 'en', 'de', 'ceb', 'pl', 'sv'] # Spanish, French, English, German, Cebuano, Polish, Swedish
-num_articles = [1500, 1500, 2500, 1500, 500, 500, 500] 
+languages = ['es', 'fr', 'en', 'de', 'pl', 'sv'] # Spanish, French, English, German, Cebuano, Polish, Swedish
+# languages = ['es', 'fr', 'en', 'de'] # , 'ceb', 'pl', 'sv'] # Spanish, French, English, German, Cebuano, Polish, Swedish
+# num_articles = [1500, 1500, 2500, 1500, 500, 500, 500] # large size
+num_articles = [750, 750, 1250, 750, 250, 250, 250] # med/final size
+# num_articles = [200, 200, 500, 200]
 train_length = [i * sentence_per_article for i in num_articles]
-references = [['Referencias', 'Notas'], ['Notes et références'], ['References'], ['Literatur'], [], ['Przypisy'], ['Noter', 'Källor', 'Referenser']]
-symbols = ['«', '»', '°', '(', ')', '-', ';', '–', '!', '|', '/', '+', '[', ']', '*', '—', '=', '#', '$', '.', ':']
+references = [['Referencias', 'Notas'], ['Notes et références'], ['References'], ['Literatur'], ['Przypisy'], ['Noter', 'Källor', 'Referenser']]
+symbols = ['«', '»', '°', '(', ')', '-', ';', '–', '!', '|', '/', '+', '[', ']', '*', '—', '=', '#', '$', '.', ':', '&', '%', ',']
 
 def main():
     print('Loading Data')
