@@ -1,6 +1,8 @@
 # CSE447-project
 
-This repo contains an example submission for the CSE447 project.
+This repo contains a working submission for the CSE447 final project. The repo is not organized to typical standards due to last-minute efforts at modifying the submission.
+
+
 For this project, you will develop a program that takes in a string of character and tries to predict the next character.
 For illustration purposes, this repo contains a dummy program that simply generates 3 random guesses of the next character.
 
